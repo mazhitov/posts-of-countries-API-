@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="request.js"></script>
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
+    <style>
+        .container {
+            max-width: 800px;
+            padding: 0 15px;
+            margin: 0 auto;
+        }
+        .postBox {
+            margin: 10px;
+            min-height: 80px;
+            background: aliceblue;
+            border: 1px solid #f69595;
+            padding: 20px;
+        }
+        .postBoxHeader {
+            display: flex;
+            justify-content: space-between;
+        }
+        .diary-block {
+            margin: 0 0 50px 0;
+        }
+        #formToFill {
+            padding: 20px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            background: aqua;
+            margin-bottom: 150px;
+        }
+        .selectCountry {
+            margin: 0 0 25px 0;
+        }
+        .selectCountry label {
+            margin-bottom: 15px;
+        }
+        #country {
+            padding: 10px;
+            margin-top: 20px;
+        }
+        .selectDate label {
+            display: block;
+            margin-bottom: 20px;
+        }
+        #submitBtn {
+            width: 50px;
+            height: 50px;
+            font-size: 25px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="diary-block"></div>
+    <form action="" id="formToFill">
+        <div class="form-row">
+            <div class="selectCountry">
+                <label for="country">Выберите страну</label>
+                <select name="country" id="country">
+                    <option value="">Выберите страну</option>
+                </select>
+            </div>
+            <div class="selectDate">
+                <label for="date">Выберите дату</label>
+                <input type="date" id="date">
+            </div>
+        </div>
+        <div class="selectMessage">
+            <label for="messageText">Введите сообщение</label>
+            <textarea name="messageText" id="messageText" cols="30" rows="10"></textarea>
+        </div>
+        <button type="submit" id="submitBtn"><i class="far fa-paper-plane"></i></button>
+    </form>
+
+</div>
+
+
+<script>
+    const countries = [];
+    let posts = [];
+    let selectCountry = '';
+    const setCountryToSelect = parseData => {
+        parseData.forEach(country => {
+            countries.push({
+                name: country['name'],
+                alpha: country['alpha3Code'],
+            })
+        });
+        countries.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.alpha;
+            option.innerText = country.name;
+            document.getElementById('country').append(option);
+        });
+        document.getElementById('country').addEventListener('change', event => {
+            const country = countries.find(c => c.alpha === event.target.value);
+            selectCountry = country.name;
+        });
+    };
+    const checkUniqueRecord = () => {
+        return posts.find(p => p.country === selectCountry && p.date === document.getElementById('date').value);
+    };
+    const resetForm = () => {
+        document.getElementById('country').value = '';
+        document.getElementById('date').value = '';
+        document.getElementById('messageText').value = '';
+        selectCountry = '';
+    };
+    const setPostBox = post => {
+        const postBox = document.createElement('div');
+        postBox.className = 'postBox';
+
+        postBox.innerHTML = `
+            <div class="postBoxHeader">
+            <div class="postBoxHeader-info">Post #<span class="numberOfPost">${posts.indexOf(post) + 1}</span> at ${post.date} being in: ${post.country}</div>
+            <button type="button" class="removeBtn" id="${post.id}">Remove</button>
+            </div>
+            <div class="postBoxFooter">${post.message}</div>
+        `;
+        document.querySelector('.diary-block').append(postBox);
+    };
+    const setNumberOfPost = () => {
+        const number = document.getElementsByClassName('numberOfPost');
+        for (let i = 0; i < number.length; i++) {
+            number[i].innerHTML = (i + 1);
+        }
+    };
+    const deletePost = (post) => {
+        const remove = document.getElementById(post.id);
+        remove.addEventListener('click', event => {
+            const index = posts.indexOf(posts.find(p => p.id === parseInt(event.target.id)));
+            if (confirm("Do you want to delete this post?")) {
+                posts.splice(index, 1);
+                document.getElementById(post.id).parentElement.parentElement.remove();
+                saveToLocalStorage();
+                setNumberOfPost();
+            }
+        });
+    };
+    const saveToLocalStorage = () => {
+        localStorage.setItem('posts', JSON.stringify(posts));
+    };
+    const fillToForm = () => {
+        document.getElementById('formToFill').addEventListener('submit', event => {
+            event.preventDefault();
+            const post = {};
+            if (posts.length > 0) {
+                const postId = posts[posts.length - 1].id;
+                post.id = postId + 1;
+                if (checkUniqueRecord()) return;
+            } else {
+                post.id = 1;
+            }
+            post.country = selectCountry;
+            post.date = document.getElementById('date').value;
+            post.message = document.getElementById('messageText').value;
+            posts.push(post);
+            setPostBox(post);
+            saveToLocalStorage();
+            deletePost(post);
+            resetForm();
+        });
+    };
+    const setPosts = data => {
+        console.log(data);
+        const parseData = JSON.parse(data);
+        setCountryToSelect(parseData);
+        const dataFromLocalStorage = localStorage.getItem('posts');
+        if (!(dataFromLocalStorage === null)) {
+            const post = JSON.parse(dataFromLocalStorage);
+            posts = post;
+            for (const postElement of post) {
+                setPostBox(postElement);
+                deletePost(postElement);
+            }
+        }
+        fillToForm();
+    };
+    request({
+        method: 'GET',
+        url: 'http://146.185.154.90:8080/restcountries/rest/v2/all',
+        success: setPosts
+    });
+</script>
+</body>
+</html>
